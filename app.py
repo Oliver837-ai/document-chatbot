@@ -358,5 +358,9 @@ def main():
         # Image analysis tips
         st.info("🖼️ **Image Tips:**\n- Supports: PNG, JPG, JPEG, GIF, BMP\n- Ask specific questions\n- Works with diagrams, charts, photos\n- Combines with document search")
 
+    # Copyright remark at the bottom
+    st.markdown("---")
+    st.markdown("Copyright by Werner Ton 2025", unsafe_allow_html=True)
+
 if __name__ == "__main__":
     main()
