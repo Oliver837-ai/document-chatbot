@@ -1,6 +1,13 @@
 import streamlit as st
 import pymupdf  # for PDFs
 from sentence_transformers import SentenceTransformer
+
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
+
+
 import chromadb
 import os
 import requests
