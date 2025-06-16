@@ -1,5 +1,31 @@
+# Core Streamlit
 streamlit
-pymupdf
-sentence-transformers
-chromadb
-torch
+
+# ChromaDB with compatible versions
+chromadb==0.4.15
+
+# Pin protobuf to compatible version
+protobuf==4.25.1
+
+# Pin OpenTelemetry packages to compatible versions
+opentelemetry-api==1.20.0
+opentelemetry-sdk==1.20.0
+opentelemetry-exporter-otlp-proto-grpc==1.20.0
+opentelemetry-instrumentation==0.41b0
+
+# Pin gRPC to compatible version
+grpcio==1.59.3
+grpcio-status==1.59.3
+
+# Other dependencies (add your specific ones here)
+# For example:
+# openai
+# python-dotenv
+# pandas
+# numpy
+
+# If you're using any of these, add them:
+# langchain
+# sentence-transformers
+# tiktoken
+
