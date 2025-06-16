@@ -1,5 +1,5 @@
 import streamlit as st
-import PyMuPDF  # for PDFs
+import pymupdf  # for PDFs
 from sentence_transformers import SentenceTransformer
 import chromadb
 import os
@@ -13,7 +13,7 @@ import io
 def extract_text_from_pdf(pdf_file):
     """Extract text from PDF - super simple"""
     try:
-        doc = PyMuPDF.open(stream=pdf_file.read(), filetype="pdf")
+        doc = pymupdf.open(stream=pdf_file.read(), filetype="pdf")
         all_text = ""
         
         for page_num in range(len(doc)):
