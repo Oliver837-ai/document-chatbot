@@ -12,7 +12,7 @@ Pillow
 
 # HTTP requests
 requests
-
+pysqlite3-binary  # Add this line
 # ChromaDB with compatible versions
 chromadb==0.4.15
 
