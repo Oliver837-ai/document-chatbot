@@ -1,11 +1,12 @@
 import streamlit as st
 import pymupdf  # for PDFs
 from sentence_transformers import SentenceTransformer
+import datetime
+import time
 
 __import__('pysqlite3')
 import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
 
 import chromadb
 import os
@@ -14,6 +15,149 @@ import json
 from PIL import Image
 import base64
 import io
+
+# --- CONFIGURATION FOR GOOGLE FORMS LOGGING ---
+# REPLACE THESE WITH YOUR ACTUAL VALUES FROM YOUR GOOGLE FORM
+GOOGLE_FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfdtpLXu7Q8YZqQVfRRd-txzpqGdXIQQmhQ4nzbt943Hlf5-Q/formResponse"
+FORM_ENTRY_IDS = {
+    "user_name": "entry.709570487",
+    "log_date": "entry.206826878",
+    "log_time": "entry.1952110840",
+    "event_type": "entry.2096410659",
+    "query_1": "entry.2075974249",
+    "query_2": "entry.1640396065",
+    "query_3": "entry.857834386",
+    "query_4": "entry.1182424791",
+    "query_5": "entry.452996460",
+    "query_6": "entry.2134939414",
+    "query_7": "entry.2044152134",
+    "query_8": "entry.1438153575",
+    "query_9": "entry.1343282068",
+    "query_10": "entry.698785579"
+}
+# ---------------------------------------------
+
+PASSWORD_FOR_UPLOAD = "1234"
+
+# --- Logging Function (Modified for Google Forms - now tracks up to 10 queries per session) ---
+def log_activity_to_google_form(user_name, event_type, query_content=""):
+    """
+    Logs user activity to a Google Form, handling up to 10 queries per user session.
+    """
+    current_datetime = datetime.datetime.now()
+    log_date = current_datetime.strftime("%Y-%m-%d")
+    log_time = current_datetime.strftime("%H:%M:%S")
+
+    # Initialize session state for logging if not present
+    if "current_client_log_data" not in st.session_state:
+        st.session_state.current_client_log_data = {
+            "user_name": user_name,
+            "log_date": log_date,
+            "log_time": log_time,
+            "queries": [""] * 10, # Initialize 10 empty slots for queries
+            "query_count": 0 # Track how many queries have been made in this session
+        }
+        # For the "New Session" event, we want to capture the initial user details
+        if event_type == "New Session":
+            form_data = {
+                FORM_ENTRY_IDS["user_name"]: user_name,
+                FORM_ENTRY_IDS["log_date"]: log_date,
+                FORM_ENTRY_IDS["log_time"]: log_time,
+                FORM_ENTRY_IDS["event_type"]: event_type,
+                FORM_ENTRY_IDS["query_1"]: "", # Initial queries are empty
+                FORM_ENTRY_IDS["query_2"]: "",
+                FORM_ENTRY_IDS["query_3"]: "",
+                FORM_ENTRY_IDS["query_4"]: "",
+                FORM_ENTRY_IDS["query_5"]: "",
+                FORM_ENTRY_IDS["query_6"]: "",
+                FORM_ENTRY_IDS["query_7"]: "",
+                FORM_ENTRY_IDS["query_8"]: "",
+                FORM_ENTRY_IDS["query_9"]: "",
+                FORM_ENTRY_IDS["query_10"]: ""
+            }
+            try:
+                requests.post(GOOGLE_FORM_URL, data=form_data)
+                # st.toast("New session logged to Google Form.")
+            except requests.exceptions.RequestException as e:
+                st.error(f"Network error logging new session: {e}")
+            except Exception as e:
+                st.error(f"Error logging new session: {e}")
+            return # Don't process as a query event immediately
+
+    # If it's a "Chat Query" event and we are within the first 10 queries
+    if event_type == "Chat Query" and st.session_state.current_client_log_data["query_count"] < 10:
+        query_index = st.session_state.current_client_log_data["query_count"]
+        st.session_state.current_client_log_data["queries"][query_index] = query_content
+        st.session_state.current_client_log_data["query_count"] += 1
+
+        # Construct form data for this query. We need to send ALL fields,
+        # not just the one we're updating, to ensure the full row is written.
+        # This approach for a single form submission per query might create new rows
+        # unless your Google Form is set up to update existing rows based on a unique ID.
+        # For simple append, each query might create a new row with partially filled query columns.
+
+        # A more robust solution for "update same row" would require Google Apps Script or Gsheets API,
+        # which is more complex. For this "Simple Persistent Logging" via Forms, each submission
+        # creates a new entry (new row) in the linked Google Sheet.
+        # So, the "first query in D, second in E" implies a single row per user session.
+        # To achieve that with *this* Google Forms method, we would need to submit all 10 queries
+        # at once, which means buffering them until the session ends or 10 queries are reached.
+
+        # Let's adjust for "first query in same row D, second in E, etc."
+        # This means we only submit to the form once per "session" or when a query slot is filled.
+        # However, Google Forms default behavior is to add a new row on *each* submission.
+        # To make it truly work as "D, E, F..." on *one row*, you'd need Google Apps Script
+        # on the Google Sheet side to find the correct row and update it.
+
+        # For the purpose of staying within the "simple HTTP POST to form" paradigm,
+        # each query submission will create a *new row* in the Google Sheet.
+        # If you strictly need one row per user, Google Apps Script or a more
+        # advanced database solution (like Supabase/Firestore) would be required.
+
+        # I will implement it such that each query creates a new row, but it fills the
+        # correct "Query X" column for that query, along with the user name, date, time.
+        # The other query columns in that row will be blank. This is the simplest way
+        # to guarantee logging each query individually via forms.
+
+        form_data = {
+            FORM_ENTRY_IDS["user_name"]: user_name,
+            FORM_ENTRY_IDS["log_date"]: log_date,
+            FORM_ENTRY_IDS["log_time"]: log_time,
+            FORM_ENTRY_IDS["event_type"]: event_type,
+        }
+        # Only populate the specific query field that was just made
+        query_key = f"query_{st.session_state.current_client_log_data['query_count']}" # query_1, query_2 etc.
+        if query_key in FORM_ENTRY_IDS:
+             form_data[FORM_ENTRY_IDS[query_key]] = query_content
+        else:
+            # Fallback for more than 10 queries, or if form structure changes
+            form_data[FORM_ENTRY_IDS["event_type"]] = f"Query {st.session_state.current_client_log_data['query_count']} (Exceeded 10 tracked queries)"
+            form_data[FORM_ENTRY_IDS["query_1"]] = query_content # Put later queries into the first query field
+
+        try:
+            requests.post(GOOGLE_FORM_URL, data=form_data)
+            # st.toast(f"Logged query {st.session_state.current_client_log_data['query_count']} to Google Form.")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Network error logging query: {e}")
+        except Exception as e:
+            st.error(f"Error logging query: {e}")
+
+    # For other event types (like "Image Analysis" or "Chat History Cleared")
+    elif event_type != "New Session": # New Session handled above
+        form_data = {
+            FORM_ENTRY_IDS["user_name"]: user_name,
+            FORM_ENTRY_IDS["log_date"]: log_date,
+            FORM_ENTRY_IDS["log_time"]: log_time,
+            FORM_ENTRY_IDS["event_type"]: event_type,
+            FORM_ENTRY_IDS["query_1"]: query_content, # Put event content in Query 1 field
+        }
+        try:
+            requests.post(GOOGLE_FORM_URL, data=form_data)
+            # st.toast(f"Logged event '{event_type}' to Google Form.")
+        except requests.exceptions.RequestException as e:
+            st.error(f"Network error logging event: {e}")
+        except Exception as e:
+            st.error(f"Error logging event: {e}")
 
 # Simple document processing
 def extract_text_from_pdf(pdf_file):
@@ -156,16 +300,27 @@ def split_text_into_chunks(text, chunk_size=1000, overlap=200):
 
 # Function to handle chat responses
 def handle_chat_response(prompt):
+    if "user_name" not in st.session_state or st.session_state.user_name is None:
+        st.warning("Please tell me your name first!")
+        return
+
+    # Log the user's query to Google Form
+    log_activity_to_google_form(st.session_state.user_name, "Chat Query", prompt)
+
+    # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.write(prompt)
     
+    # Generate and display assistant response
     with st.chat_message("assistant"):
         with st.spinner("Searching through your documents..."):
             relevant_docs = search_documents(prompt)
             
             if relevant_docs:
-                response = f"Based on your documents, here's what I found:\n\n"
+                # Personalize the response with the user's name
+                response_prefix = f"Hello {st.session_state.user_name}, based on your documents, here's what I found:\n\n"
+                response = response_prefix
                 
                 for i, doc in enumerate(relevant_docs[:3], 1):  # Show top 3 results
                     lines = doc.split('\n')
@@ -181,9 +336,10 @@ def handle_chat_response(prompt):
                     response += "---\n\n"
                 
                 st.write(response)
+                # Add to chat history
                 st.session_state.messages.append({"role": "assistant", "content": response})
             else:
-                no_results_msg = "I couldn't find relevant information in your uploaded documents. Please try:\n\n- Rephrasing your question\n- Using different keywords\n- Making sure your documents have been processed\n- Checking if the information exists in your uploaded files\n- Or try uploading an image if your question is about visual content!"
+                no_results_msg = f"Sorry {st.session_state.user_name}, I couldn't find relevant information in your uploaded documents. Please try:\n\n- Rephrasing your question\n- Using different keywords\n- Making sure your documents have been processed\n- Checking if the information exists in your uploaded files\n- Or try uploading an image if your question is about visual content!"
                 st.write(no_results_msg)
                 st.session_state.messages.append({"role": "assistant", "content": no_results_msg})
 
@@ -197,7 +353,26 @@ def main():
     
     st.title("🤖 AI Document & Vision Assistant")
     st.write("Upload PDF documents and images, then ask questions about their content!")
-    
+
+    # Initial greeting and name input
+    if "user_name" not in st.session_state:
+        st.session_state.user_name = None # Initialize to None if not present
+
+    if st.session_state.user_name is None:
+        user_name_input = st.text_input("Hey there, how shall I address you?")
+        if user_name_input:
+            st.session_state.user_name = user_name_input.strip()
+            # Log the new session to Google Form
+            log_activity_to_google_form(st.session_state.user_name, "New Session")
+            st.session_state.messages = [] # Clear messages for new user
+            st.success(f"Nice to meet you, {st.session_state.user_name}! You can now ask questions or upload documents.")
+            time.sleep(1) # Give time for message to display
+            st.rerun() # Rerun to remove the name input and proceed with the main app
+        return # Stop execution until name is entered
+    else:
+        # If name is already set, display welcome message for existing user
+        st.info(f"Welcome back, {st.session_state.user_name}! How can I help you today?")
+        
     # Create three columns
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -205,9 +380,9 @@ def main():
         st.header("📁 Document Management")
         
         # Password input for document upload
-        password = st.text_input("Enter password to upload documents:", type="password")
+        password = st.text_input("Enter password to upload documents:", type="password", key="upload_password")
         
-        if password == "1234":
+        if password == PASSWORD_FOR_UPLOAD:
             st.success("Password accepted! You can now upload documents.")
             # File uploader for PDFs
             uploaded_files = st.file_uploader(
@@ -257,7 +432,6 @@ def main():
                         st.success(f"Successfully processed {total_files} documents into {processed_chunks} searchable chunks!")
                         
                         # Clear progress indicators after 2 seconds
-                        import time
                         time.sleep(2)
                         progress_bar.empty()
                         status_text.empty()
@@ -266,7 +440,7 @@ def main():
             
             # Show some helpful info
             st.info("💡 **Tips:**\n- Upload multiple PDFs at once\n- Supported formats: PDF only\n- Processing may take a few minutes for large files")
-        elif password:
+        elif password: # Only show error if password was actually entered
             st.error("Incorrect password. Please try again.")
 
     with col2:
@@ -306,7 +480,13 @@ def main():
             
         # Clear chat button
         if st.button("🗑️ Clear Chat History"):
+            # When chat is cleared, also reset user name to prompt again
+            # Note: logging this specific event to Google Forms.
+            log_activity_to_google_form(st.session_state.user_name, "Chat History Cleared")
             st.session_state.messages = []
+            st.session_state.user_name = None
+            # Reset the session log data to ensure a fresh start for the next user
+            st.session_state.current_client_log_data = None
             st.rerun()
 
     with col3:
@@ -340,6 +520,9 @@ def main():
                         except:
                             analysis = analyze_image_with_local_description(image, image_question)
                         
+                        # Log the image analysis event
+                        log_activity_to_google_form(st.session_state.user_name, "Image Analysis", image_question)
+
                         # Add to chat
                         st.session_state.messages.append({
                             "role": "user",  
