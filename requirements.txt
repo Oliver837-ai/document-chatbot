@@ -1,5 +1,5 @@
 streamlit
-PyMuPDF
+pymupdf
 sentence-transformers
 chromadb
 torch
