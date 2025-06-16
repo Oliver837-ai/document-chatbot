@@ -346,12 +346,12 @@ def handle_chat_response(prompt):
 # Main app
 def main():
     st.set_page_config(
-        page_title="AI Document & Vision Assistant",
+        page_title="AI Document Assistant",
         page_icon="🤖",
         layout="wide"
     )
     
-    st.title("🤖 AI Document & Vision Assistant")
+    st.title("🤖 AI Document Assistant")
     st.write("Upload PDF documents and images, then ask questions about their content!")
 
     # Initial greeting and name input
