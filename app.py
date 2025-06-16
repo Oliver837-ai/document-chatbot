@@ -7,7 +7,6 @@ import sys
 sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 
-
 import chromadb
 import os
 import requests
@@ -155,6 +154,39 @@ def split_text_into_chunks(text, chunk_size=1000, overlap=200):
     
     return chunks
 
+# Function to handle chat responses
+def handle_chat_response(prompt):
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.write(prompt)
+    
+    with st.chat_message("assistant"):
+        with st.spinner("Searching through your documents..."):
+            relevant_docs = search_documents(prompt)
+            
+            if relevant_docs:
+                response = f"Based on your documents, here's what I found:\n\n"
+                
+                for i, doc in enumerate(relevant_docs[:3], 1):  # Show top 3 results
+                    lines = doc.split('\n')
+                    source_line = next((line for line in lines if '===' in line and 'from' in line), '')
+                    
+                    if source_line:
+                        response += f"**Source {i}:** {source_line.replace('===', '').strip()}\n\n"
+                    
+                    clean_doc = doc.replace(source_line, '').strip()
+                    clean_doc = '\n'.join([line for line in clean_doc.split('\n') if not line.startswith('===')])
+                    
+                    response += f"{clean_doc[:500]}{'...' if len(clean_doc) > 500 else ''}\n\n"
+                    response += "---\n\n"
+                
+                st.write(response)
+                st.session_state.messages.append({"role": "assistant", "content": response})
+            else:
+                no_results_msg = "I couldn't find relevant information in your uploaded documents. Please try:\n\n- Rephrasing your question\n- Using different keywords\n- Making sure your documents have been processed\n- Checking if the information exists in your uploaded files\n- Or try uploading an image if your question is about visual content!"
+                st.write(no_results_msg)
+                st.session_state.messages.append({"role": "assistant", "content": no_results_msg})
+
 # Main app
 def main():
     st.set_page_config(
@@ -172,63 +204,70 @@ def main():
     with col1:
         st.header("📁 Document Management")
         
-        # File uploader for PDFs
-        uploaded_files = st.file_uploader(
-            "Choose PDF files",
-            type=['pdf'],
-            accept_multiple_files=True,
-            help="Upload multiple PDF files to create your knowledge base"
-        )
+        # Password input for document upload
+        password = st.text_input("Enter password to upload documents:", type="password")
         
-        # Process button
-        if st.button("🔄 Process Documents", type="primary", use_container_width=True):
-            if uploaded_files:
-                embedder, collection = setup_simple_search()
-                
-                if embedder and collection:
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
+        if password == "1234":
+            st.success("Password accepted! You can now upload documents.")
+            # File uploader for PDFs
+            uploaded_files = st.file_uploader(
+                "Choose PDF files",
+                type=['pdf'],
+                accept_multiple_files=True,
+                help="Upload multiple PDF files to create your knowledge base"
+            )
+            
+            # Process button
+            if st.button("🔄 Process Documents", type="primary", use_container_width=True):
+                if uploaded_files:
+                    embedder, collection = setup_simple_search()
                     
-                    total_files = len(uploaded_files)
-                    processed_chunks = 0
-                    
-                    for file_idx, pdf_file in enumerate(uploaded_files):
-                        status_text.text(f"Processing {pdf_file.name}...")
+                    if embedder and collection:
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
                         
-                        # Extract text
-                        text = extract_text_from_pdf(pdf_file)
+                        total_files = len(uploaded_files)
+                        processed_chunks = 0
                         
-                        if text.strip():
-                            # Split into chunks
-                            chunks = split_text_into_chunks(text)
+                        for file_idx, pdf_file in enumerate(uploaded_files):
+                            status_text.text(f"Processing {pdf_file.name}...")
                             
-                            # Add to search database
-                            for chunk_idx, chunk in enumerate(chunks):
-                                try:
-                                    collection.add(
-                                        documents=[chunk],
-                                        ids=[f"{pdf_file.name}_chunk_{chunk_idx}_{processed_chunks}"]
-                                    )
-                                    processed_chunks += 1
-                                except Exception as e:
-                                    st.warning(f"Error processing chunk from {pdf_file.name}: {str(e)}")
+                            # Extract text
+                            text = extract_text_from_pdf(pdf_file)
+                            
+                            if text.strip():
+                                # Split into chunks
+                                chunks = split_text_into_chunks(text)
+                                
+                                # Add to search database
+                                for chunk_idx, chunk in enumerate(chunks):
+                                    try:
+                                        collection.add(
+                                            documents=[chunk],
+                                            ids=[f"{pdf_file.name}_chunk_{chunk_idx}_{processed_chunks}"]
+                                        )
+                                        processed_chunks += 1
+                                    except Exception as e:
+                                        st.warning(f"Error processing chunk from {pdf_file.name}: {str(e)}")
+                                
+                                # Update progress
+                                progress_bar.progress((file_idx + 1) / total_files)
                         
-                        # Update progress
-                        progress_bar.progress((file_idx + 1) / total_files)
-                    
-                    status_text.text("✅ Processing complete!")
-                    st.success(f"Successfully processed {total_files} documents into {processed_chunks} searchable chunks!")
-                    
-                    # Clear progress indicators after 2 seconds
-                    import time
-                    time.sleep(2)
-                    progress_bar.empty()
-                    status_text.empty()
-            else:
-                st.warning("Please upload at least one PDF file.")
-        
-        # Show some helpful info
-        st.info("💡 **Tips:**\n- Upload multiple PDFs at once\n- Supported formats: PDF only\n- Processing may take a few minutes for large files")
+                        status_text.text("✅ Processing complete!")
+                        st.success(f"Successfully processed {total_files} documents into {processed_chunks} searchable chunks!")
+                        
+                        # Clear progress indicators after 2 seconds
+                        import time
+                        time.sleep(2)
+                        progress_bar.empty()
+                        status_text.empty()
+                else:
+                    st.warning("Please upload at least one PDF file.")
+            
+            # Show some helpful info
+            st.info("💡 **Tips:**\n- Upload multiple PDFs at once\n- Supported formats: PDF only\n- Processing may take a few minutes for large files")
+        elif password:
+            st.error("Incorrect password. Please try again.")
 
     with col2:
         st.header("💬 Ask Questions")
@@ -246,47 +285,25 @@ def main():
                         st.image(message["image"], caption="Uploaded Image", use_column_width=True)
                     st.write(message["content"])
         
+        # Add the three clickable buttons
+        st.write("---") # Separator for better UI
+        st.subheader("Quick Queries")
+        
+        if st.button("Give me a Summary of the Construction Handbook", use_container_width=True):
+            handle_chat_response("Give me a summary of the construction handbook.")
+        
+        if st.button("What is the grounding resistance on a site", use_container_width=True):
+            handle_chat_response("What is the grounding resistance on a site?")
+
+        if st.button("What is the concrete strength on a tower foundation", use_container_width=True):
+            handle_chat_response("What is the concrete strength on a tower foundation?")
+        
+        st.write("---") # Separator
+        
         # Chat input
         if prompt := st.chat_input("Ask a question about your documents or images..."):
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
+            handle_chat_response(prompt)
             
-            # Display user message
-            with st.chat_message("user"):
-                st.write(prompt)
-            
-            # Generate and display assistant response
-            with st.chat_message("assistant"):
-                with st.spinner("Searching through your documents..."):
-                    relevant_docs = search_documents(prompt)
-                    
-                    if relevant_docs:
-                        response = f"Based on your documents, here's what I found:\n\n"
-                        
-                        for i, doc in enumerate(relevant_docs[:3], 1):  # Show top 3 results
-                            # Extract source info from the document
-                            lines = doc.split('\n')
-                            source_line = next((line for line in lines if '===' in line and 'from' in line), '')
-                            
-                            if source_line:
-                                response += f"**Source {i}:** {source_line.replace('===', '').strip()}\n\n"
-                            
-                            # Clean up the document text
-                            clean_doc = doc.replace(source_line, '').strip()
-                            clean_doc = '\n'.join([line for line in clean_doc.split('\n') if not line.startswith('===')])
-                            
-                            response += f"{clean_doc[:500]}{'...' if len(clean_doc) > 500 else ''}\n\n"
-                            response += "---\n\n"
-                        
-                        st.write(response)
-                        
-                        # Add to chat history
-                        st.session_state.messages.append({"role": "assistant", "content": response})
-                    else:
-                        no_results_msg = "I couldn't find relevant information in your uploaded documents. Please try:\n\n- Rephrasing your question\n- Using different keywords\n- Making sure your documents have been processed\n- Checking if the information exists in your uploaded files\n- Or try uploading an image if your question is about visual content!"
-                        st.write(no_results_msg)
-                        st.session_state.messages.append({"role": "assistant", "content": no_results_msg})
-        
         # Clear chat button
         if st.button("🗑️ Clear Chat History"):
             st.session_state.messages = []
@@ -325,19 +342,19 @@ def main():
                         
                         # Add to chat
                         st.session_state.messages.append({
-                            "role": "user", 
+                            "role": "user",  
                             "content": f"[Image uploaded] {image_question}",
                             "image": image
                         })
                         st.session_state.messages.append({
-                            "role": "assistant", 
+                            "role": "assistant",  
                             "content": analysis
                         })
                         
                         st.rerun()
                 else:
                     st.warning("Please ask a question about the image.")
-        
+            
         # Image analysis tips
         st.info("🖼️ **Image Tips:**\n- Supports: PNG, JPG, JPEG, GIF, BMP\n- Ask specific questions\n- Works with diagrams, charts, photos\n- Combines with document search")
 
