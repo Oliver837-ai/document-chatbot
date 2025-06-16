@@ -1,6 +1,18 @@
 # Core Streamlit
 streamlit
 
+# PDF processing
+pymupdf
+
+# Sentence Transformers for embeddings
+sentence-transformers
+
+# Image processing
+Pillow
+
+# HTTP requests
+requests
+
 # ChromaDB with compatible versions
 chromadb==0.4.15
 
@@ -17,15 +29,14 @@ opentelemetry-instrumentation==0.41b0
 grpcio==1.59.3
 grpcio-status==1.59.3
 
-# Other dependencies (add your specific ones here)
-# For example:
-# openai
-# python-dotenv
-# pandas
-# numpy
+# Required for sentence-transformers
+torch
+torchvision
+transformers
+numpy
+scipy
+scikit-learn
 
-# If you're using any of these, add them:
-# langchain
-# sentence-transformers
-# tiktoken
-
+# Additional dependencies that might be needed
+# python-dotenv  # if you're using environment variables
+# pandas  # if you're processing data
