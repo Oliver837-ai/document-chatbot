@@ -328,12 +328,30 @@ def main():
         <style>
         .stApp {
             background-color: #870F26; /* Background color for the whole page */
+            color: #FFFFFF; /* Default text color for the entire app */
         }
-        h1 {
-            color: white; /* Color for the main title */
+        h1, h2, h3, h4, h5, h6 {
+            color: #FFFFFF; /* All headings white */
         }
-        /* Targeting the chat input field */
-        /* This applies a border to all st.text_input, including the chat input */
+        p {
+            color: #FFFFFF; /* Paragraph text white */
+        }
+        /* Make markdown elements (like st.write("---") or regular text) white */
+        .stMarkdown {
+            color: #FFFFFF;
+        }
+
+        /* Specifically target text within chat messages to be white, if not already */
+        div[data-testid="stChatMessage"] p {
+            color: #FFFFFF;
+        }
+
+        /* Ensure input labels are white */
+        .stTextInput label, .stFileUploader label {
+            color: #FFFFFF;
+        }
+
+        /* Keep the custom bold border for the text input */
         .stTextInput > div > div > input {
             border: 3px solid #870F26; /* Bold border for text inputs */
         }
@@ -346,6 +364,15 @@ def main():
             border: 3px solid #870F26; /* Border for the entire chat input container */
             border-radius: 0.5rem; /* Slightly rounded corners for the border */
             padding: 0.5rem; /* Some padding inside the border */
+        }
+
+        /* Ensure .stAlert (info, warning, error) boxes maintain their default styling */
+        div[data-testid="stAlert"] {
+            color: unset !important; /* Revert text color to browser default for alerts */
+            background-color: unset !important; /* Revert background color */
+        }
+        div[data-testid="stAlert"] p {
+             color: unset !important; /* Ensure paragraph text inside alerts is also default */
         }
         </style>
         """,
