@@ -169,7 +169,7 @@ def analyze_image_with_huggingface(image, question):
         # Simple image captioning (free tier)
         response = requests.post(
             API_URL,
-            headers={"Authorization": f"Bearer hf_demo"},  # Using demo token
+            headers={"Authorization": "Bearer hf_demo"},  # Using demo token
             json={"inputs": img_base64}
         )
 
@@ -184,7 +184,7 @@ def analyze_image_with_huggingface(image, question):
             return "Image analysis service temporarily unavailable. Please try again later."
 
     except Exception as e:
-        return f"Error analyzing image: {str(e)}")
+        return f"Error analyzing image: {str(e)}"
 
 def analyze_image_with_local_description(image, question):
     """Fallback: Basic image analysis without external APIs"""
@@ -218,7 +218,7 @@ def analyze_image_with_local_description(image, question):
         return analysis
 
     except Exception as e:
-        return f"Error processing image: {str(e)}")
+        return f"Error processing image: {str(e)}"
 
 # Load simple models (cached for speed)
 @st.cache_resource
@@ -519,7 +519,8 @@ def main():
                         # Try advanced analysis first, fallback to basic
                         try:
                             analysis = analyze_image_with_huggingface(image, image_question)
-                        except:
+                        except Exception as e: # Catch specific exceptions or general one here
+                            st.warning(f"Hugging Face analysis failed: {e}. Falling back to basic analysis.")
                             analysis = analyze_image_with_local_description(image, image_question)
 
                         # Log the image analysis event
