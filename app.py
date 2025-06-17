@@ -1,20 +1,20 @@
 import streamlit as st
- import pymupdf  # for PDFs
- from sentence_transformers import SentenceTransformer
- import datetime
- import time
- 
- __import__('pysqlite3')
- import sys
- sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
- 
- import chromadb
- import os
- import requests
- import json
- from PIL import Image
- import base64
- import io
+import pymupdf  # for PDFs
+from sentence_transformers import SentenceTransformer
+import datetime
+import time
+
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
+import chromadb
+import os
+import requests
+import json
+from PIL import Image
+import base64
+import io
  
  # --- CONFIGURATION FOR GOOGLE FORMS LOGGING ---
  # REPLACE THESE WITH YOUR ACTUAL VALUES FROM YOUR GOOGLE FORM
